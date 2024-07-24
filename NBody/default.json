@@ -1,0 +1,23 @@
+{
+    "dt"    : 0.0001,
+    "G"     : 1,
+    "dtype" : "float32",
+    "objs": [
+        {
+            "name": "obj1",
+            "pos": [-1, 0, 0],
+            "vel": [0, -1, 0],
+            "mass": 1,
+            "radius": 1
+        },
+        {
+            "name": "obj2",
+            "pos": [1, 0, 0],
+            "vel": [0, 1, 0],
+            "mass": 1,
+            "radius": 1
+        }
+    ],
+    "visualize" : "False",
+    "scope" : [100,100,100]
+}
