@@ -1,4 +1,4 @@
-#!./venv/bin/python3.11
+#!./.venv/bin/python3.11
 from NBody import Solver
 
 mysolver = Solver(visualize=False)
