@@ -1,7 +1,7 @@
 #!./.venv/bin/python3.11
 from NBody import Solver
 
-mysolver = Solver(visualize=False)
+mysolver = Solver(visualize=True)
 mysolver.build()
-mysolver.run(10)
-print(mysolver.obj_pos)
+mysolver.run(60)
+print(mysolver.tsim_current)
