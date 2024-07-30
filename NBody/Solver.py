@@ -1,12 +1,15 @@
 import numpy as np
 import json
 import warnings
-from .Visual import Visualizer
 from tqdm import tqdm
 
-import json
-import numpy as np
-import warnings
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.animation import FuncAnimation
+
+COLORS = np.array(['r', 'g', 'b', 'c', 'm', 'y', 'k'])
+TRACE_LENGTH = 50
+MAX_FRAMES = 0xFFFFFFFF
 
 class Solver(object):
     """
@@ -37,7 +40,25 @@ class Solver(object):
             self.config_file = config_file
 
         self.load_config(self.config_file)
+        
         self.E = np.sum(self.obj_mass * np.linalg.norm(self.obj_vel, axis=1)**2 / 2)
+
+        if self.visualize:
+            self.fig = plt.figure()
+            self.ax = self.fig.add_subplot(111, projection='3d')
+            self.ax.set_xlabel('X')
+            self.ax.set_ylabel('Y')
+            self.ax.set_zlabel('Z')
+            self.ax.set_xlim3d(self.scope[0])
+            self.ax.set_ylim3d(self.scope[1])
+            self.ax.set_zlim3d(self.scope[2])
+            self.ax.set_title("3D Animated Scatter Plot")
+            self.history = []
+            self.colors = np.random.choice(COLORS, size=(self.obj_pos.shape[0]))
+            self.lines = [self.ax.plot([], [], [], color = self.colors[i])[0] for i in range(self.obj_pos.shape[0])]
+            self.scat = self.ax.scatter(self.obj_pos[:, 0], self.obj_pos[:, 1], self.obj_pos[:, 2], c=self.colors, marker='o')
+            self.text_box = self.ax.text2D(-0.1, 0.9, '', transform=self.ax.transAxes)
+            self.running = False
 
     def __iter__(self) -> "Solver":
         """
@@ -59,17 +80,17 @@ class Solver(object):
             StopIteration: If the simulation has reached its end.
         """
 
-        if self.tsim_current * 1000 - self.tsim_start_ms >= self.tsim_ms:
+        if self.tsim_ms and self.tsim_current * 1000 - self.tsim_start_ms >= self.tsim_ms:
             self.tsim_start_ms = self.tsim_current_ms
             raise StopIteration
         
         if self.visualize:
             while self.tsim_current*1000 < self.tsim_current_ms + self.ms_per_frame:
-                self._update()
+                self._tick()
             self.tsim_current_ms += self.ms_per_frame
         else:
             while self.tsim_current*1000 < self.tsim_current_ms + 1:
-                self._update()
+                self._tick()
             self.tsim_current_ms += 1
         
         return self
@@ -81,6 +102,8 @@ class Solver(object):
         Returns:
             int: simulation length in ms.
         """
+        if self.tsim_ms is None and self.visualize:
+            return MAX_FRAMES
         return self.tsim_ms
 
     def __str__(self) -> str:
@@ -111,7 +134,7 @@ class Solver(object):
         except:
             print(f"Error loading config from {self.config_file}.")
 
-    def _update(self) -> "Solver":
+    def _tick(self) -> "Solver":
         """
         Perform an update step in the simulation.
 
@@ -129,7 +152,31 @@ class Solver(object):
         self.obj_vel += dt * self.G * acc
         self.obj_pos += self.obj_vel * dt
         return self
+    
+    # FuncAnimation provides self here,
+    # so we need to declear it as a static method
+    @staticmethod
+    def _update(self) -> None:
+        if self.tsim_current_ms % self.ms_per_frame == 0:
+            self.text_box.set_text(fr"simulation time: {self.tsim_current:.2f} s" + \
+                                   '\n' + fr"$\Delta E = {self.delta_E:.2f} J$" + \
+                                    f"({self.delta_E / self.E:.1f}%)")
 
+            self.scat._offsets3d = (self.obj_pos[:, 0], self.obj_pos[:, 1], self.obj_pos[:, 2])
+            self.history.append(self.obj_pos.copy())
+            
+            # Limit history length for trace
+            if len(self.history) > TRACE_LENGTH:
+                self.history.pop(0)
+                
+            # Update trace lines
+            for i in range(self.obj_pos.shape[0]):
+                trace_data = np.array(self.history)[:, i, :]
+                self.lines[i].set_data(trace_data[:, 0], trace_data[:, 1])
+                self.lines[i].set_3d_properties(trace_data[:, 2])
+    
+        return self.scat, *self.lines, self.text_box
+    
     def load_config(self, config_file: str) -> None:
         """
         Load a new configuration file.
@@ -202,15 +249,17 @@ class Solver(object):
                 else:
                     usr_input = input("Proceed? (y/n): ")
 
+        if (not hasattr(self, "ani")) and self.visualize:
+            self.ani = FuncAnimation(self.fig, self._update, frames=self, interval=self.ms_per_frame, blit=False)
+
         with warnings.catch_warnings(action="ignore"):
             try:
                 if self.visualize:
-                    self.visualizer = Visualizer(self)
+                    self.running = True
+                    plt.show()
                 else:
                     for _ in tqdm(self, unit="ms"):
                         pass
                     
             except KeyboardInterrupt:
                 print("Simulation stopped.")
-
-        self._time_left = float("inf")

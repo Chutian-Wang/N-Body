@@ -9,5 +9,3 @@ else:
 
 mysolver.build()
 mysolver.run(30)
-print(mysolver.delta_E)
-print(mysolver.time)
