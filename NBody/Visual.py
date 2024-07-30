@@ -11,7 +11,6 @@ class Visualizer(object):
         from mpl_toolkits.mplot3d import Axes3D
         from matplotlib.animation import FuncAnimation
 
-
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(111, projection='3d')
         self.ax.set_xlabel('X')

@@ -103,6 +103,7 @@ class Solver(object):
             self.G = self.config["G"]
             self.dtype = self.config["dtype"]
             self.objs = self.config["objs"]
+            self.desc = self.config["desc"]
             if self.visualize:
                 self.scope = np.array(self.config["scope"])
                 self.ms_per_frame = self.config["ms_per_frame"]
@@ -186,6 +187,7 @@ class Solver(object):
             time (any, optional): The total simulation time. Set to None for indefinite simulation.
         """
         self.set_sim_time(time)
+        print(self.desc)
 
         if self.tsim_ms is None:
             print("Running simulation indefinitely.")

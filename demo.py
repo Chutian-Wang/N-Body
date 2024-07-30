@@ -1,7 +1,13 @@
 #!./.venv/bin/python3.11
 from NBody import Solver
 
-mysolver = Solver(visualize=True)
+visulaize = input("Visualize? (y/n): ")
+if visulaize.lower() == "y":
+    mysolver = Solver(visualize=True)
+else:
+    mysolver = Solver()
+
 mysolver.build()
-mysolver.run(60)
-print(mysolver.tsim_current)
+mysolver.run(30)
+print(mysolver.delta_E)
+print(mysolver.time)
