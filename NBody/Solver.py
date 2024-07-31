@@ -378,11 +378,12 @@ class Solver(object):
                     else:
                         usr_input = input("Proceed? (y/n): ")
 
-            self.ani = FuncAnimation(self.fig,
-                                     self._update,
-                                     frames=self,
-                                     interval=self.visuals.get("fps", DEFAULT_FPS),
-                                     blit=False)
+            if self.visualize:
+                self.ani = FuncAnimation(self.fig,
+                            self._update,
+                            frames=self,
+                            interval=self.visuals.get("fps", DEFAULT_FPS),
+                            blit=False)
 
             try:
                 if self.visualize:
@@ -392,6 +393,7 @@ class Solver(object):
                                       writer='ffmpeg',
                                       fps=self.visuals.get("fps", DEFAULT_FPS),
                                       progress_callback=lambda i, n: pbar.update(1))
+                        print(f"Animation saved to {animation_path}")
                     else:
                         plt.show()
                 else:
