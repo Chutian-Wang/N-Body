@@ -1,23 +1,49 @@
 {
-    "dt"    : 0.0001,
+    "dt"    : 0.0005,
     "G"     : 1,
     "dtype" : "float32",
+    "desc"  : "In this demo, we simulate a 6 body system where planets gets captured and released by heavier bodies.",
     "objs": [
         {
             "name": "obj1",
-            "pos": [-1, -1, 0],
-            "vel": [0, -1, 0],
-            "mass": 1,
+            "pos": [3, 0, 0],
+            "vel": [0, 5, 0],
+            "mass": 300,
             "radius": 1
         },
         {
             "name": "obj2",
-            "pos": [1, 1, 0],
-            "vel": [0, 1, 0],
+            "pos": [-3, 0, 0],
+            "vel": [0, -5, 0],
+            "mass": 300,
+            "radius": 1
+        },
+        {
+            "name": "obj3",
+            "pos": [8, 0, 1],
+            "vel": [0, 5, 0],
             "mass": 1,
+            "radius": 1
+        },
+        {
+            "name": "obj4",
+            "pos": [8, 0, 1.5],
+            "vel": [0, 8, 0],
+            "mass": 0.1,
+            "radius": 1
+        },
+        {
+            "name": "obj5",
+            "pos": [-8, 3, 1.5],
+            "vel": [3, 2, 1],
+            "mass": 40,
             "radius": 1
         }
     ],
-    "visualize" : "False",
-    "scope" : [100,100,100]
+    "ms_per_frame": 10,
+    "scope" : [
+        [-10, 10],
+        [-10, 10],
+        [-10, 10]
+    ]
 }
