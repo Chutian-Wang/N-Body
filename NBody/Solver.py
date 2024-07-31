@@ -1,14 +1,13 @@
-import numpy as np
 import json
-import warnings
-from tqdm import tqdm
-
-import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.animation import FuncAnimation
-
-from dataclasses import dataclass
+import numpy as np
 from threading import Thread
+from tqdm import tqdm
+from dataclasses import dataclass
+import warnings
+
+import matplotlib.pyplot as plt
 
 COLORS = np.array(['r', 'g', 'b', 'c', 'm', 'y', 'k'])
 MAX_FRAMES = 0xFFFFFFFF
@@ -54,13 +53,14 @@ class Solver(object):
                 # Align semicolons
                 print("  " * indent + str(k).ljust(max_key_length) + ": " + str(v))
 
-    def __init__(self, config_file=None, visualize=False, precompute = True) -> None:
+    def __init__(self, config_file=None, visualize=False, precompute=True) -> None:
         """
         Initialize the Solver object.
 
         Args:
             config_file (str, optional): Path to the configuration file. If not provided, default demo data will be used.
             visualize (bool, optional): Flag indicating whether to enable visualization. Defaults to False.
+            precompute (bool, optional): Flag indicating whether to enable precomputation. Defaults to True.
         """
         self.config_valid = False
         self.visualize = visualize
@@ -98,16 +98,15 @@ class Solver(object):
             self.ax.set_title("3D Animated Scatter Plot")
             self.history = []
             self.colors = np.random.choice(COLORS, size=(self.obj_pos.shape[0]))
-            self.lines = [self.ax.plot([], [], [], color = self.colors[i])[0] for i in range(self.obj_pos.shape[0])]
+            self.lines = [self.ax.plot([], [], [], color=self.colors[i])[0] for i in range(self.obj_pos.shape[0])]
             self.scat = self.ax.scatter(self.obj_pos[:, 0], self.obj_pos[:, 1], self.obj_pos[:, 2], c=self.colors, marker='o')
             self.text_box = self.ax.text2D(-0.2, 0.8, '', transform=self.ax.transAxes)
             if self.visuals.get("disp_name", False):
                 self.text_annotations = [self.ax.text(self.obj_pos[i, 0], self.obj_pos[i, 1], self.obj_pos[i, 2],
-                                            self.objs[i]["name"], color=self.colors[i]) 
-                                for i in range(self.obj_pos.shape[0])]
+                                                      self.objs[i]["name"], color=self.colors[i])
+                                         for i in range(self.obj_pos.shape[0])]
             else:
                 self.text_annotations = None
-            self.running = False
 
         if self.precompute:
             self.compute_thread = None
@@ -167,14 +166,17 @@ class Solver(object):
         
     def __len__(self) -> int:
         """
-        Get simulation length in ms.
+        Get simulation length in ms or frames (if visualization is enabled).
 
         Returns:
-            int: simulation length in ms.
+            int: simulation length in ms or frames (if visualization is enabled).
         """
         if self.tsim_ms is None and self.visualize:
             return MAX_FRAMES
-        return self.tsim_ms
+        if self.visualize:
+            return int(np.ceil(self.tsim_ms / self.visuals.get("ms_per_frame", DEFAULT_MS_PER_FRAME)))
+        else:
+            return self.tsim_ms
 
     def __str__(self) -> str:
         """
@@ -200,9 +202,6 @@ class Solver(object):
         return self.buffer(self.tsim_current, self.tsim_start_ms, self.tsim_current_ms, self.obj_pos.copy(), self.obj_vel.copy())
     
     def _read_config(self) -> None:
-        """
-        Read the configuration from the specified file.
-        """
         try:
             with open(self.config_file, 'r') as f:
                 self.config = json.load(f)
@@ -250,44 +249,40 @@ class Solver(object):
         else:
             data = self
 
-        if data.tsim_current_ms % self.visuals.get("ms_per_frame", DEFAULT_MS_PER_FRAME) == 0:
-            if data.tsim_current_ms == self.tsim_ms:
-                self.text_box.set_text(fr"simulation time: {data.tsim_current:.2f} s" + \
+        if data.tsim_current_ms == self.tsim_ms:
+            self.text_box.set_text(fr"simulation time: {data.tsim_current:.2f} s" + \
+                            '\n' + fr"$\Delta E = {self.delta_E:.2f} J$" + \
+                            f"({self.delta_E / self.E:.1f}%)\n" + \
+                            "Simulation complete.")
+        else:
+            self.text_box.set_text(fr"simulation time: {data.tsim_current:.2f} s" + \
                                 '\n' + fr"$\Delta E = {self.delta_E:.2f} J$" + \
                                 f"({self.delta_E / self.E:.1f}%)\n" + \
-                                "Simulation complete.")
-            else:
-                self.text_box.set_text(fr"simulation time: {data.tsim_current:.2f} s" + \
-                                    '\n' + fr"$\Delta E = {self.delta_E:.2f} J$" + \
-                                    f"({self.delta_E / self.E:.1f}%)\n" + \
-                                    f"{self.visuals.get('ms_per_frame', DEFAULT_MS_PER_FRAME)} ms per frame @ {self.visuals.get('fps', DEFAULT_FPS)} fps")
-            
-            if self.text_annotations:
-                for i, text in enumerate(self.text_annotations):
-                    text.set_position((data.obj_pos[i, 0], data.obj_pos[i, 1]))
-                    text.set_3d_properties(data.obj_pos[i, 2], zdir = (1,1,0))
-                    text.set_text(self.objs[i]["name"])
+                                f"{self.visuals.get('ms_per_frame', DEFAULT_MS_PER_FRAME)} ms per frame @ {self.visuals.get('fps', DEFAULT_FPS)} fps")
+        
+        if self.text_annotations:
+            for i, text in enumerate(self.text_annotations):
+                text.set_position((data.obj_pos[i, 0], data.obj_pos[i, 1]))
+                text.set_3d_properties(data.obj_pos[i, 2], zdir = (1,1,0))
+                text.set_text(self.objs[i]["name"])
 
-            self.scat._offsets3d = (data.obj_pos[:, 0], data.obj_pos[:, 1], data.obj_pos[:, 2])
-            self.history.append(data.obj_pos.copy())
+        self.scat._offsets3d = (data.obj_pos[:, 0], data.obj_pos[:, 1], data.obj_pos[:, 2])
+        self.history.append(data.obj_pos.copy())
+        
+        # Limit history length for trace
+        trace_length = self.visuals.get("trace_length", 20)
+        if len(self.history) > trace_length:
+            self.history.pop(0)
             
-            # Limit history length for trace
-            trace_length = self.visuals.get("trace_length", 20)
-            if len(self.history) > trace_length:
-                self.history.pop(0)
-                
-            # Update trace lines
-            for i in range(data.obj_pos.shape[0]):
-                trace_data = np.array(self.history)[:, i, :]
-                self.lines[i].set_data(trace_data[:, 0], trace_data[:, 1])
-                self.lines[i].set_3d_properties(trace_data[:, 2])
+        # Update trace lines
+        for i in range(data.obj_pos.shape[0]):
+            trace_data = np.array(self.history)[:, i, :]
+            self.lines[i].set_data(trace_data[:, 0], trace_data[:, 1])
+            self.lines[i].set_3d_properties(trace_data[:, 2])
     
         return self.scat, *self.lines, self.text_box
     
     def _build(self) -> None:
-        """
-        Build the initial state of the simulation based on the loaded configuration.
-        """
         self.obj_pos = np.array([obj["pos"]
                                  for obj in self.objs], dtype=self.dtype)
         self.obj_vel = np.array([obj["vel"]
@@ -335,46 +330,76 @@ class Solver(object):
     
     @property
     def delta_E(self) -> float:
+        """
+        Calculate the energy difference from the beginning of the simulation to the current state.
+        This is useful if simulation confidence is of interest.
+
+        Returns:
+            float: The energy difference.
+        """
         if self.precompute:
             return self.E - np.sum(self.obj_mass * np.linalg.norm(self.data_buf.obj_vel, axis=1)**2 / 2)
         return self.E - np.sum(self.obj_mass * np.linalg.norm(self.obj_vel, axis=1)**2 / 2)
 
-    def run(self, time=None) -> None:
-        """
-        Run the simulation.
+    def run(self, time=None, animation_path=None) -> None:
+            """
+            Run the simulation.
 
-        Args:
-            time (any, optional): The total simulation time. Set to None for indefinite simulation.
-        """
-        self.set_sim_time(time)
-        print(self.desc)
+            Args:
+                time (any, optional): The total simulation time. Set to None for indefinite simulation.
+                animation_path (str, optional): The file path to save the animation. If not provided, the animation will be displayed on the screen.
 
-        if self.tsim_ms is None:
-            print("Running simulation indefinitely.")
-            print("If you'd like to set a limit, use set_sim_length() or provide a length argument to run().")
-            usr_input = input("Proceed? (y/n): ")
-            while True:
-                if usr_input.lower() == "n":
-                    return
-                elif usr_input.lower() == "y":
-                    print("Press Ctrl+C to stop simulation.")
-                    break
+            Returns:
+                None
+
+            Raises:
+                KeyboardInterrupt: If the simulation is stopped by pressing Ctrl+C.
+
+            Notes:
+                - If `time` is set to None, the simulation will run indefinitely until manually stopped.
+                - If `animation_path` is provided, the animation will be saved as a file using the specified path.
+                - If `animation_path` is not provided, the animation will be displayed on the screen.
+            """
+            self.set_sim_time(time)
+            print(self.desc)
+
+            if self.tsim_ms is None:
+                print("Running simulation indefinitely.")
+                print("animation_path is ignored.")
+                print("If you'd like to set a limit, use set_sim_length() or provide a length argument to run().")
+                usr_input = input("Proceed? (y/n): ")
+                while True:
+                    if usr_input.lower() == "n":
+                        return
+                    elif usr_input.lower() == "y":
+                        animation_path = None
+                        print("Press Ctrl+C to stop simulation.")
+                        break
+                    else:
+                        usr_input = input("Proceed? (y/n): ")
+
+            self.ani = FuncAnimation(self.fig,
+                                     self._update,
+                                     frames=self,
+                                     interval=self.visuals.get("fps", DEFAULT_FPS),
+                                     blit=False)
+
+            try:
+                if self.visualize:
+                    if animation_path:
+                        pbar = tqdm(total=len(self), unit="frames", desc="Generating animation")
+                        self.ani.save(animation_path,
+                                      writer='ffmpeg',
+                                      fps=self.visuals.get("fps", DEFAULT_FPS),
+                                      progress_callback=lambda i, n: pbar.update(1))
+                    else:
+                        plt.show()
                 else:
-                    usr_input = input("Proceed? (y/n): ")
+                    for _ in tqdm(self, unit="ms"):
+                        pass
 
-        if (not hasattr(self, "ani")) and self.visualize:
-            self.ani = FuncAnimation(self.fig, self._update, frames=self, interval=self.visuals.get("fps", DEFAULT_FPS) , blit=False)
-
-        try:
-            if self.visualize:
-                self.running = True
-                plt.show()
-            else:
-                for _ in tqdm(self, unit="ms"):
-                    pass
-                
-        except KeyboardInterrupt:
-            print("Simulation stopped.")
+            except KeyboardInterrupt:
+                print("Simulation stopped.")
 
     def save(self, filename: str) -> None:
         """

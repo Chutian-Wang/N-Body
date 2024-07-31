@@ -19,6 +19,7 @@ if args.config is None:
     print("No config specified, using NBody module default config")
 
 solver = Solver(args.config, args.visualize, args.precompute)
+#solver.run(args.time,animation_path="demo_video.gif")
 solver.run(args.time)
 if args.save is not None:
     solver.save(args.save)
