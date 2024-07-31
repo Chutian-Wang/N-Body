@@ -1,8 +1,8 @@
 {
+    "dtype" : "float64",
     "dt"    : 0.0005,
-    "G"     : 1,
-    "dtype" : "float32",
-    "desc"  : "In this demo, we simulate a 6 body system where planets gets captured and released by heavier bodies.",
+    "G"     : 1.0,
+    "desc"  : "In this demo, we simulate a 6 body system where smaller objects get captured and released by massive bodies.",
     "objs": [
         {
             "name": "obj1",
@@ -40,10 +40,15 @@
             "radius": 1
         }
     ],
-    "ms_per_frame": 10,
-    "scope" : [
-        [-10, 10],
-        [-10, 10],
-        [-10, 10]
-    ]
+    "visuals": {
+        "trace_length": 20,
+        "fps": 30,
+        "ms_per_frame": 20,
+        "disp_name": true,
+        "scope" : [
+            [-10, 10],
+            [-10, 10],
+            [-10, 10]
+        ]
+    }
 }

@@ -19,11 +19,14 @@
             "radius": 1
         }
     ],
-    "ms_per_frame": 10,
-    "trace_length": 50,
-    "scope" : [
-        [-5, 5],
-        [-5, 5],
-        [-5, 5]
-    ]
+    "visuals": {
+        "trace_length": 20,
+        "fps": 30,
+        "ms_per_frame": 40,
+        "scope" : [
+            [-5, 5],
+            [-5, 5],
+            [-5, 5]
+        ]
+    }
 }
