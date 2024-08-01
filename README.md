@@ -34,9 +34,11 @@ options:
   -c <config_dir>, --config <config_dir>
                         Specify the configuration directory
   -v, --visualize       Visualize the simulation
-  -p, --precompute      Precompute the simulation by one max(1ms, 1frame), recommended if visualizing
+  -p, --precompute      Precompute the simulation by 1ms (or 1frame if visualization is enabled), recommended if visualizing
   -t <time>, --time <time>
                         The time in seconds for which to run the simulation
   -s <save_dir>, --save <save_dir>
                         Save the simulation result config file to <save_dir>
+
+Example usage: ./demo.py -v -c demo_config.json -t 30 -s demo_result.json
 ```
