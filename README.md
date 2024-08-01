@@ -4,11 +4,22 @@ A primitive python N body solver that supports configurable visualization, video
 
 ## Construction
 
-The NBody module contains a `Solver` class, which can be instantiated from a config file. A developer may specify optimization options and visualization options upon instanciation or after the initialization of the solver object. Detailed documentation can be obtained with python function `help(Solver)`.
+This project uses the `numpy` package as its compute kernel and uses numerical integration to solve arbitrary N-Body problems. This project implements a `NBody.Solver` module in which a iterable `Solver` class is contained. The Solver object can load a simulation source and then solve the N-Body problem, optionally displaying or saving an animation of the simulation. It can also save the resulting data as a new simulation source for incremental simulation. For each iteration of the solver object, the solver updates its internal states (objects' position, velocity, etc.). If visualization is enabled, the solver will update its internal state to the time when the next frame should be captured. Otherwise, it advances itself by 1 millisecond in the simulation.
+
+To achieve an iteration of the solver object, many smaller compute "ticks" are performed. For each tick with a defined small time interval, the gravitational acceleration for each object resulting from every other object is computed using classical mechanical assumptions and then integrated to get their respective velocities and positions in the next time frame. All computations are vectorized for maximum performance. Numerous optimizations such as frame precomputing are implemented to facilitate simulation and animation rendering.
+
+A simulation source is provided with a configuration json file. A demonstration configuration file is included in the project directory. A demonstration application is also included, the usage of which can be accessed by running `./demo.py -h`
+
+To view the usage of the Solver class, you may use the python `help` function.
+
+```python
+from NBody.Solver import Solver
+help(Solver)
+```
 
 ## Installation
 
-Run `install_packages.sh` to create and activate a python virtual environment. This script will then install all the required packages specified in `requirements.txt` to the local python virtual environment.
+Please `cd` into the project directory (N-Body) and run `install_packages.sh`. This script will install all necessary packages for this project and activate a virtual python environment at the current directory. Note that you need to manually deactivate this virtual environment by running `deactivate` if you wish to do so after leaving this project.
 
 ## Demo
 
