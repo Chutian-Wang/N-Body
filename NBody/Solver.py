@@ -393,6 +393,7 @@ class Solver(object):
                                       writer='ffmpeg',
                                       fps=self.visuals.get("fps", DEFAULT_FPS),
                                       progress_callback=lambda i, n: pbar.update(1))
+                        pbar.close()
                         print(f"Animation saved to {animation_path}")
                     else:
                         plt.show()
