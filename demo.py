@@ -9,7 +9,7 @@ parser.add_argument('-p', '--precompute', action='store_true', help='Precompute 
 parser.add_argument('-t', '--time', metavar='<time>', type=float, help='The time in seconds for which to run the simulation')
 parser.add_argument('-s', '--save', metavar='<save_dir>', help='Save the simulation result config file to <save_dir>')
 
-parser.epilog = "Example usage: ./demo.py -v -c demo_config.json -t 30 -s demo_result.json"
+parser.epilog = "Example usage: ./demo.py -vp -c demo_config.json -t 30 -s demo_result.json"
 
 args = parser.parse_args()
 
@@ -17,10 +17,7 @@ if args.time is None:
     print("No time specified, defaulting to 30 seconds")
     args.time = 30
 
-if args.config is None:
-    print("No config specified, using NBody module default config")
-
-solver = Solver(args.config, args.visualize, args.precompute)
+solver = Solver(args.config, args.visualize, args.precompute, title="demo.py simulation")
 # if you want to save the animation instead of viewing it,
 # you can specify the path to save the animation
 # solver.run(args.time,animation_path="demo_video.gif")

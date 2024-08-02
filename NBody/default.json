@@ -2,7 +2,7 @@
     "dt"    : 0.001,
     "G"     : 1,
     "dtype" : "float32",
-    "desc"  : "In this demo, we simulate a 6 body system where planets gets captured and released by heavier bodies.",
+    "desc"  : "Using default 2 body configuration. Please specify a config file.",
     "objs": [
         {
             "name": "obj1",

@@ -53,32 +53,27 @@ class Solver(object):
                 # Align semicolons
                 print("  " * indent + str(k).ljust(max_key_length) + ": " + str(v))
 
-    def __init__(self, config_file=None, visualize=False, precompute=True) -> None:
+    def __init__(self, config:any=None, visualize=False, precompute=True, title='') -> None:
         """
         Initialize the Solver object.
 
         Args:
-            config_file (str, optional): Path to the configuration file. If not provided, default demo data will be used.
+            config (any, optional): Configuration data/path for the solver. If not provided, default demo data will be used.
             visualize (bool, optional): Flag indicating whether to enable visualization. Defaults to False.
-            precompute (bool, optional): Flag indicating whether to enable precomputation. Defaults to True.
+            precompute (bool, optional): Flag indicating whether to enable precomputation by 1 time frame. Defaults to True.
+            title (str, optional): Title for the visualization. Defaults to an empty string.
         """
-        self.config_valid = False
+        self.done = False
         self.visualize = visualize
         self.precompute = precompute
+        self.title = title
         self.tsim_current = 0
         self.tsim_ms = 0
 
         self.tsim_start_ms = 0
         self.tsim_current_ms = 0
 
-        if config_file is None:
-            import os.path as path
-            print("No config provided, using default demo data.")
-            self.config_file = path.dirname(__file__) + "/default.json"
-        else:
-            self.config_file = config_file
-
-        self.load_config(self.config_file)
+        self.load(config)
         
         self.E = np.sum(self.obj_mass * np.linalg.norm(self.obj_vel, axis=1)**2 / 2)
 
@@ -86,27 +81,6 @@ class Solver(object):
             print("Visualization properties:")
             Solver.print_dict(self.visuals, indent=1)
             print()
-            self.fig = plt.figure()
-            self.ax = self.fig.add_subplot(111, projection='3d')
-            self.ax.set_xlabel('X')
-            self.ax.set_ylabel('Y')
-            self.ax.set_zlabel('Z')
-            scope = self.visuals.get("scope", [[-1, 1], [-1, 1], [-1, 1]])
-            self.ax.set_xlim3d(scope[0])
-            self.ax.set_ylim3d(scope[1])
-            self.ax.set_zlim3d(scope[2])
-            self.ax.set_title("3D Animated Scatter Plot")
-            self.history = []
-            self.colors = np.random.choice(COLORS, size=(self.obj_pos.shape[0]))
-            self.lines = [self.ax.plot([], [], [], color=self.colors[i])[0] for i in range(self.obj_pos.shape[0])]
-            self.scat = self.ax.scatter(self.obj_pos[:, 0], self.obj_pos[:, 1], self.obj_pos[:, 2], c=self.colors, marker='o')
-            self.text_box = self.ax.text2D(-0.2, 0.8, '', transform=self.ax.transAxes)
-            if self.visuals.get("disp_name", False):
-                self.text_annotations = [self.ax.text(self.obj_pos[i, 0], self.obj_pos[i, 1], self.obj_pos[i, 2],
-                                                      self.objs[i]["name"], color=self.colors[i])
-                                         for i in range(self.obj_pos.shape[0])]
-            else:
-                self.text_annotations = None
 
         if self.precompute:
             self.compute_thread = None
@@ -131,27 +105,28 @@ class Solver(object):
         Raises:
             StopIteration: If the simulation has reached its end.
         """
-
+        if self.tsim_ms and len(self) == 0:
+            if self.precompute:
+                self.tsim_start_ms = self.data_buf.tsim_current_ms
+                self.data_buf.tsim_start_ms = self.tsim_current_ms
+            else:
+                self.tsim_start_ms = self.tsim_current_ms
+            self.done = True
+            raise StopIteration
+        
         # if precompute is enabled, self is immediately returned
         # and the next iteration is performed in a separate thread
         # along with plt's drawing thread (_update)
         if self.precompute:
-            if self.tsim_ms and self.data_buf.tsim_current * 1000 - self.data_buf.tsim_start_ms >= self.tsim_ms:
-                self.tsim_start_ms = self.tsim_current_ms
-                raise StopIteration
-            
             # in case the previous thread is still running
             if self.compute_thread:
                 self.compute_thread.join()
 
             self.data_buf = self._gen_buffer()
-            self.compute_thread = Thread(target=self._next_ms)
+            self.compute_thread = Thread(target=self._next)
             self.compute_thread.start()
             
         else:
-            if self.tsim_ms and self.tsim_current * 1000 - self.tsim_start_ms >= self.tsim_ms:
-                self.tsim_start_ms = self.tsim_current_ms
-                raise StopIteration
             
             if self.visualize:
                 while self.tsim_current*1000 < self.tsim_current_ms + self.visuals.get("ms_per_frame", DEFAULT_MS_PER_FRAME):
@@ -174,9 +149,11 @@ class Solver(object):
         if self.tsim_ms is None and self.visualize:
             return MAX_FRAMES
         if self.visualize:
-            return int(np.ceil(self.tsim_ms / self.visuals.get("ms_per_frame", DEFAULT_MS_PER_FRAME)))
+            data = self.data_buf if self.precompute else self
+            return int(np.ceil((self.tsim_ms - data.tsim_current_ms + data.tsim_start_ms) / self.visuals.get("ms_per_frame", DEFAULT_MS_PER_FRAME)))
         else:
-            return self.tsim_ms
+            data = self.data_buf if self.precompute else self
+            return self.tsim_ms - data.tsim_current_ms + data.tsim_start_ms
 
     def __str__(self) -> str:
         """
@@ -187,7 +164,7 @@ class Solver(object):
         """
         return f"N-Body Solver object with {len(self.obj_pos)} objects."
     
-    def _next_ms(self) -> None:
+    def _next(self) -> None:
         
         if self.visualize:
             while self.tsim_current*1000 < self.tsim_current_ms + self.visuals.get("ms_per_frame", DEFAULT_MS_PER_FRAME):
@@ -201,28 +178,14 @@ class Solver(object):
     def _gen_buffer(self) -> None:
         return self.buffer(self.tsim_current, self.tsim_start_ms, self.tsim_current_ms, self.obj_pos.copy(), self.obj_vel.copy())
     
-    def _read_config(self) -> None:
+    def _read_config(self, file_path) -> None:
         try:
-            with open(self.config_file, 'r') as f:
+            with open(file_path, 'r') as f:
                 self.config = json.load(f)
-            self.dt = self.config["dt"]
-            self.G = self.config["G"]
-            self.dtype = self.config["dtype"]
-            self.objs = self.config["objs"]
-            self.desc = self.config["desc"]
-            if self.visualize:
-                self.visuals = self.config["visuals"]
-            self.config_valid = True
         except:
-            print(f"Error loading config from {self.config_file}.")
+            raise ValueError(f"Error loading config from {self.config_file}.")
 
     def _tick(self) -> "Solver":
-        """
-        Perform an update step in the simulation.
-
-        Returns:
-            Solver: The Solver object itself.
-        """
         # this is to suppress the RuntimeWarning: invalid value encountered in divide
         # this is due to object self referencing calculating acceleration
         # this line alone costs 1/16 of the total runtime when problem sizes are small
@@ -239,6 +202,29 @@ class Solver(object):
         self.obj_vel += dt * self.G * acc
         self.obj_pos += self.obj_vel * dt
         return self
+    
+    def _make_fig(self):
+        self.fig = plt.figure()
+        self.ax = self.fig.add_subplot(111, projection='3d')
+        self.ax.set_xlabel('X')
+        self.ax.set_ylabel('Y')
+        self.ax.set_zlabel('Z')
+        scope = self.visuals.get("scope", [[-1, 1], [-1, 1], [-1, 1]])
+        self.ax.set_xlim3d(scope[0])
+        self.ax.set_ylim3d(scope[1])
+        self.ax.set_zlim3d(scope[2])
+        self.ax.set_title(self.title)
+        self.history = []
+        self.colors = np.random.choice(COLORS, size=(self.obj_pos.shape[0]))
+        self.lines = [self.ax.plot([], [], [], color=self.colors[i])[0] for i in range(self.obj_pos.shape[0])]
+        self.scat = self.ax.scatter(self.obj_pos[:, 0], self.obj_pos[:, 1], self.obj_pos[:, 2], c=self.colors, marker='o')
+        self.text_box = self.ax.text2D(-0.2, 0.8, '', transform=self.ax.transAxes)
+        if self.visuals.get("disp_name", False):
+            self.text_annotations = [self.ax.text(self.obj_pos[i, 0], self.obj_pos[i, 1], self.obj_pos[i, 2],
+                                                    self.config["objs"][i]["name"], color=self.colors[i])
+                                        for i in range(self.obj_pos.shape[0])]
+        else:
+            self.text_annotations = None
     
     # FuncAnimation provides self here,
     # so we need to declear it as a static method
@@ -264,45 +250,90 @@ class Solver(object):
             for i, text in enumerate(self.text_annotations):
                 text.set_position((data.obj_pos[i, 0], data.obj_pos[i, 1]))
                 text.set_3d_properties(data.obj_pos[i, 2], zdir = (1,1,0))
-                text.set_text(self.objs[i]["name"])
 
         self.scat._offsets3d = (data.obj_pos[:, 0], data.obj_pos[:, 1], data.obj_pos[:, 2])
         self.history.append(data.obj_pos.copy())
         
         # Limit history length for trace
         trace_length = self.visuals.get("trace_length", 20)
-        if len(self.history) > trace_length:
+        if trace_length and len(self.history) > trace_length:
             self.history.pop(0)
             
-        # Update trace lines
-        for i in range(data.obj_pos.shape[0]):
-            trace_data = np.array(self.history)[:, i, :]
-            self.lines[i].set_data(trace_data[:, 0], trace_data[:, 1])
-            self.lines[i].set_3d_properties(trace_data[:, 2])
+            # Update trace lines
+            for i in range(data.obj_pos.shape[0]):
+                trace_data = np.array(self.history)[:, i, :]
+                self.lines[i].set_data(trace_data[:, 0], trace_data[:, 1])
+                self.lines[i].set_3d_properties(trace_data[:, 2])
     
         return self.scat, *self.lines, self.text_box
     
     def _build(self) -> None:
-        self.obj_pos = np.array([obj["pos"]
-                                 for obj in self.objs], dtype=self.dtype)
-        self.obj_vel = np.array([obj["vel"]
-                                 for obj in self.objs], dtype=self.dtype)
-        self.obj_mass = np.array([obj["mass"]
-                                  for obj in self.objs], dtype=self.dtype)
+
+        try:
+            self.dt = self.config["dt"]
+            self.G = self.config["G"]
+            if self.visualize:
+                self.visuals = self.config["visuals"]
+
+                if (fps := self.visuals.get("fps", None)) is None:
+                    warnings.warn("fps not specified, using 30.")
+                elif not isinstance(fps, int) or fps <= 0:
+                    raise ValueError("fps must be a positive integer.")
+                
+                if (ms_per_frame := self.visuals.get("ms_per_frame", None)) is None:
+                    warnings.warn("ms_per_frame not specified, using 10.")
+                elif not isinstance(ms_per_frame, int) or ms_per_frame <= 0:
+                    raise ValueError("ms_per_frame must be a positive integer.")
+                
+                if (trace_length := self.visuals.get("trace_length", None)) is None:
+                    warnings.warn("trace_length not specified, using 20.")
+                elif not isinstance(trace_length, int) or trace_length < 0:
+                    raise ValueError("trace_length must be a non-negative integer.")
+                
+                if self.visuals.get("scope", None) is None:
+                    raise ValueError("scope not specified.")
+            
+            if self.config.get("dtype", None) is None:
+                warnings.warn("dtype not specified, using float32.")
+
+            if self.config.get("objs", None) is None:
+                raise ValueError("No objects specified.")
+
+            self.obj_pos = np.array([obj["pos"]
+                                    for obj in self.config["objs"]], dtype=self.config.get("dtype", np.float32))
+            self.obj_vel = np.array([obj["vel"]
+                                    for obj in self.config["objs"]], dtype=self.config.get("dtype", np.float32))
+            self.obj_mass = np.array([obj["mass"]
+                                    for obj in self.config["objs"]], dtype=self.config.get("dtype", np.float32))
+        except:
+            raise ValueError("Invalid configuration.")
     
-    def load_config(self, config_file: str) -> None:
+    def load(self, config: any) -> None:
         """
-        Load a new configuration file.
+        Load a configuration.
 
         Args:
-            config_file (str): Path to the new configuration file.
+            config (any): The configuration to load. It can be a dictionary, a path to a configuration file, or None.
+
+        Raises:
+            ValueError: If the configuration is any of the above.
+
+        Returns:
+            None
         """
-        self.config_file = config_file
-        self._read_config()
-        if self.config_valid:
+        if config is None:
+            import os.path as path
+            file_path = path.dirname(__file__) + "/default.json"
+            self._read_config(file_path)
+        elif isinstance(config, dict):
+            self.config = config
             self._build()
+        elif isinstance(config, str):
+            self._read_config(config)
         else:
-            raise ValueError("Invalid configuration file.")
+            raise ValueError("Configurations must be a dictionary or a path to a configuration file.")
+
+        self._build()
 
     def set_sim_time(self, time: any) -> None:
         """
@@ -360,12 +391,22 @@ class Solver(object):
                 - If `animation_path` is provided, the animation will be saved as a file using the specified path.
                 - If `animation_path` is not provided, the animation will be displayed on the screen.
             """
-            self.set_sim_time(time)
-            print(self.desc)
+            self.done = False
+            if time: self.set_sim_time(time)
+            if self.precompute:
+                if self.data_buf.tsim_current_ms == self.tsim_ms:
+                    warnings.warn("Simulation already ran, running more may cause matplotlib to have unexpected behavior.")
+                    #return
+            else:
+                if self.tsim_current_ms == self.tsim_ms:
+                    warnings.warn("Simulation already ran, running more may cause matplotlib to have unexpected behavior.")
+                    #return
+
+            print(self.config["desc"], "No description.")
 
             if self.tsim_ms is None:
-                print("Running simulation indefinitely.")
-                print("animation_path is ignored.")
+                warnings.warn("Running simulation indefinitely.")
+                warnings.warn("animation_path is ignored.")
                 print("If you'd like to set a limit, use set_sim_length() or provide a length argument to run().")
                 usr_input = input("Proceed? (y/n): ")
                 while True:
@@ -379,11 +420,13 @@ class Solver(object):
                         usr_input = input("Proceed? (y/n): ")
 
             if self.visualize:
+                self._make_fig()
                 self.ani = FuncAnimation(self.fig,
                             self._update,
                             frames=self,
                             interval=self.visuals.get("fps", DEFAULT_FPS),
-                            blit=False)
+                            blit=False,
+                            repeat=False)
 
             try:
                 if self.visualize:
@@ -397,9 +440,15 @@ class Solver(object):
                         print(f"Animation saved to {animation_path}")
                     else:
                         plt.show()
+                        if not self.done:
+                            print(len(self), "frames remaining.")
+                            for _ in tqdm(self, unit="frame", desc="Visual closed, running remaining simulation"):
+                                pass
+                            self.done = True
                 else:
                     for _ in tqdm(self, unit="ms"):
                         pass
+                print(f"{self.title} Simulation complete.")
 
             except KeyboardInterrupt:
                 print("Simulation stopped.")
@@ -411,23 +460,32 @@ class Solver(object):
         Args:
             filename (str): The path to the file where the configuration will be saved.
         """
-        config_data = {
-            "dt": self.dt,
-            "G": self.G,
-            "dtype": self.dtype,
-            "objs": [
-                {
-                    "pos": self.obj_pos[i].tolist(),
-                    "vel": self.obj_vel[i].tolist(),
-                    "mass": self.obj_mass[i],
-                    "name": self.objs[i]["name"]
-                } for i in range(len(self.objs))
-            ],
-            "desc": self.desc
-        }
-        if self.config.get("visuals", None):
-            config_data["visuals"] = self.config["visuals"]
+        config_data = self.get_state()
         
         with open(filename, 'w') as f:
             json.dump(config_data, f, indent=4)
         print(f"Simulation result configuration saved to {filename}")
+
+
+    # This is somewhat combersome, but it is what we have to do
+    # to make sure matplotlib doesnt't do something weired when
+    # we try to run multiple simulations.
+    def get_state(self) -> dict:
+        """
+        Get the current state of the simulation. This can be used for 
+        incremental saving of the simulation result without writing to a file.
+
+        Returns:
+            dict: The current state of the simulation.
+        """
+        config_data = self.config.copy()
+        config_data["objs"] = [
+            {
+                "pos": self.obj_pos[i].tolist(),
+                "vel": self.obj_vel[i].tolist(),
+                "mass": obj["mass"],
+                "name": obj.get("name", ''),
+                "radius": obj.get("radius", 0)
+            } for i, obj in enumerate(self.config["objs"])
+        ]
+        return config_data
