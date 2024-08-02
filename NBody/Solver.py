@@ -65,6 +65,7 @@ class Solver(object):
             title (str, optional): Title for the visualization. Defaults to an empty string.
         """
         self.perf_c = time.perf_counter()
+        self.export = False
         self.done = False
         self.visualize = visualize
         self.precompute = precompute
@@ -246,10 +247,11 @@ class Solver(object):
                             f"({self.delta_E / self.E:.1f}%)\n" + \
                             "Simulation complete.")
         else:
+            fps = self.visuals.get("fps", DEFAULT_FPS) if self.export else true_fps
             self.text_box.set_text(fr"simulation time: {data.tsim_current:.2f} s" + \
                                 '\n' + fr"$\Delta E = {self.delta_E:.2f} J$" + \
                                 f"({self.delta_E / self.E:.1f}%)\n" + \
-                                f"{self.visuals.get('ms_per_frame', DEFAULT_MS_PER_FRAME)} ms per frame @ {true_fps:.1f} fps")
+                                f"{self.visuals.get('ms_per_frame', DEFAULT_MS_PER_FRAME)} ms per frame @ {fps:.1f} fps")
         
         if self.text_annotations:
             for i, text in enumerate(self.text_annotations):
@@ -437,6 +439,7 @@ class Solver(object):
             try:
                 if self.visualize:
                     if animation_path:
+                        self.export = True
                         pbar = tqdm(total=len(self), unit="frames", desc="Generating animation")
                         self.ani.save(animation_path,
                                       writer='ffmpeg',
@@ -445,6 +448,7 @@ class Solver(object):
                         pbar.close()
                         print(f"Animation saved to {animation_path}")
                     else:
+                        self.export = False
                         plt.show()
                         if not self.done:
                             print(len(self), "frames remaining.")
