@@ -240,7 +240,7 @@ class Solver(object):
         else:
             data = self
 
-        if data.tsim_current_ms == self.tsim_ms:
+        if data.tsim_current_ms - data.tsim_start_ms == self.tsim_ms:
             self.text_box.set_text(fr"simulation time: {data.tsim_current:.2f} s" + \
                             '\n' + fr"$\Delta E = {self.delta_E:.2f} J$" + \
                             f"({self.delta_E / self.E:.1f}%)\n" + \
@@ -261,8 +261,9 @@ class Solver(object):
         
         # Limit history length for trace
         trace_length = self.visuals.get("trace_length", 20)
-        if trace_length and len(self.history) > trace_length:
-            self.history.pop(0)
+        if trace_length:
+            if len(self.history) > trace_length:
+                self.history.pop(0)
             
             # Update trace lines
             for i in range(data.obj_pos.shape[0]):
