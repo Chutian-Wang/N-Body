@@ -6,6 +6,7 @@ from threading import Thread
 from tqdm import tqdm
 from dataclasses import dataclass
 import warnings
+import time
 
 import matplotlib.pyplot as plt
 
@@ -63,6 +64,7 @@ class Solver(object):
             precompute (bool, optional): Flag indicating whether to enable precomputation by 1 time frame. Defaults to True.
             title (str, optional): Title for the visualization. Defaults to an empty string.
         """
+        self.perf_c = time.perf_counter()
         self.done = False
         self.visualize = visualize
         self.precompute = precompute
@@ -230,6 +232,9 @@ class Solver(object):
     # so we need to declear it as a static method
     @staticmethod
     def _update(self) -> None:
+        now = time.perf_counter()
+        true_fps = 1 / (now - self.perf_c)
+        self.perf_c = now
         if self.precompute:
             data = self.data_buf
         else:
@@ -244,7 +249,7 @@ class Solver(object):
             self.text_box.set_text(fr"simulation time: {data.tsim_current:.2f} s" + \
                                 '\n' + fr"$\Delta E = {self.delta_E:.2f} J$" + \
                                 f"({self.delta_E / self.E:.1f}%)\n" + \
-                                f"{self.visuals.get('ms_per_frame', DEFAULT_MS_PER_FRAME)} ms per frame @ {self.visuals.get('fps', DEFAULT_FPS)} fps")
+                                f"{self.visuals.get('ms_per_frame', DEFAULT_MS_PER_FRAME)} ms per frame @ {true_fps:.1f} fps")
         
         if self.text_annotations:
             for i, text in enumerate(self.text_annotations):
