@@ -408,7 +408,7 @@ class Solver(object):
                     warnings.warn("Simulation already ran, running more may cause matplotlib to have unexpected behavior.")
                     #return
 
-            print(self.config["desc"], "No description.")
+            print(self.config.get("desc", "No description."))
 
             if self.tsim_ms is None:
                 warnings.warn("Running simulation indefinitely.")
