@@ -454,7 +454,7 @@ class Solver(object):
                 else:
                     for _ in tqdm(self, unit="ms"):
                         pass
-                print(f"{self.title} Simulation complete.")
+                print(f"{self.title} run complete.")
 
             except KeyboardInterrupt:
                 print("Simulation stopped.")
